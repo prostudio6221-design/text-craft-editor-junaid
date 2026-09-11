@@ -61,7 +61,6 @@ body {
 .btn-danger { background: #ef4444; color: white; }
 .btn-export { background: #10b981; color: white; }
 .btn-export-alt { background: #f59e0b; color: white; }
-
 .btn:hover { opacity: 0.9; }
 
 .select-input, .prop-input {
@@ -80,7 +79,7 @@ body {
 }
 
 .sidebar-left, .sidebar-right {
-    width: 280px;
+    width: 300px;
     background-color: #1e293b;
     border-right: 1px solid #334155;
     padding: 15px;
@@ -110,7 +109,6 @@ body {
     position: relative;
 }
 
-/* Canvas Aspect Ratios */
 .transparent-canvas {
     position: relative;
     background-image: linear-gradient(45deg, #1e293b 25%, transparent 25%), 
@@ -128,7 +126,6 @@ body {
 .ratio-16-9 { width: 640px; height: 360px; }
 .ratio-9-16 { width: 360px; height: 640px; }
 
-/* Draggable Text Styles */
 .draggable-text {
     position: absolute;
     cursor: move;
@@ -137,6 +134,7 @@ body {
     white-space: nowrap;
     word-break: keep-all;
     border: 1px transparent dashed;
+    line-height: 1.2;
 }
 
 .draggable-text.selected {
@@ -174,52 +172,54 @@ body {
     cursor: pointer;
 }
 
-.prop-group {
-    margin-bottom: 12px;
-}
-
-.prop-group label {
-    display: block;
-    font-size: 12px;
-    color: #94a3b8;
-    margin-bottom: 4px;
-}
-
+.prop-group { margin-bottom: 12px; }
+.prop-group label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
 .prop-input { width: 100%; }
 
 /* Presets FX CSS */
-.fx-glass-frost {
-    color: #ffffff;
-    text-shadow: 0 0 10px rgba(255,255,255,0.8);
-}
-.fx-cyan-glass {
-    color: #00f2fe;
-    text-shadow: 0 0 12px #00f2fe, 0 0 24px #4facfe;
-}
-.fx-gold-shine {
-    color: #ffe066;
-    text-shadow: 0 0 10px #f59e0b, 0 0 20px #d97706;
-}
-.fx-neon-fire {
-    color: #ff4d4d;
-    text-shadow: 0 0 10px #ff0000, 0 0 20px #ff6600;
-}
-.fx-purple-glow {
-    color: #e0aaff;
-    text-shadow: 0 0 10px #c77dff, 0 0 20px #7b2cbf;
-}
-.fx-emerald-glass {
-    color: #80ffdb;
-    text-shadow: 0 0 10px #5390d9, 0 0 20px #48bfe3;
-}
+.fx-glass-frost { color: #ffffff; text-shadow: 0 0 10px rgba(255,255,255,0.8); }
+.fx-cyan-glass { color: #00f2fe; text-shadow: 0 0 12px #00f2fe, 0 0 24px #4facfe; }
+.fx-gold-shine { color: #ffe066; text-shadow: 0 0 10px #f59e0b, 0 0 20px #d97706; }
+.fx-neon-fire { color: #ff4d4d; text-shadow: 0 0 10px #ff0000, 0 0 20px #ff6600; }
+.fx-metal-3d { color: #e2e8f0; text-shadow: 2px 2px 0px #475569, 4px 4px 0px #0f172a; }
+.fx-holographic { color: #a7f3d0; text-shadow: 0 0 8px #06b6d4, 0 0 16px #ec4899; }
+.fx-emerald-glass { color: #80ffdb; text-shadow: 0 0 10px #5390d9, 0 0 20px #48bfe3; }
+.fx-purple-glow { color: #e0aaff; text-shadow: 0 0 10px #c77dff, 0 0 20px #7b2cbf; }
+.fx-chrome-mirror { color: #f1f5f9; text-shadow: 0 2px 4px #000000; }
+.fx-gradient-fill { color: #38bdf8; text-shadow: 0 0 8px #0284c7; }
+.fx-neon-sign { color: #f43f5e; text-shadow: 0 0 10px #f43f5e, 0 0 20px #be123c; }
+.fx-foil-rainbow { color: #f472b6; text-shadow: 0 0 10px #a855f7; }
+.fx-comic-pop { color: #facc15; text-shadow: 2px 2px 0px #000; }
+.fx-paper-cut { color: #ffffff; text-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+.fx-sunset-gradient { color: #fb923c; text-shadow: 0 0 10px #f43f5e; }
+.fx-retro-vhs { color: #22d3ee; text-shadow: -2px 0 #ef4444, 2px 0 #3b82f6; }
+.fx-frosted { color: #e2e8f0; text-shadow: 0 0 5px rgba(255,255,255,0.5); }
 
-/* Animations */
+/* All 14 Animations */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pulseGlow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.6); } }
-@keyframes zoomPop { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
+@keyframes pulseGlow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes zoomPop { 0% { transform: scale(0.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes bounceIn { 0% { transform: translateY(-50px); } 70% { transform: translateY(10px); } 100% { transform: translateY(0); } }
 @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes slideLeft { from { transform: translateX(-50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideRight { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes shakeFx { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+@keyframes rotateIn { from { transform: rotate(-180deg) scale(0); opacity: 0; } to { transform: rotate(0) scale(1); opacity: 1; } }
+@keyframes elasticPop { 0% { transform: scale(0); } 80% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@keyframes flickerFx { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } 70% { opacity: 0.9; } }
+@keyframes glitchFx { 0% { transform: translate(0); } 20% { transform: translate(-3px, 3px); } 40% { transform: translate(-3px, -3px); } 60% { transform: translate(3px, 3px); } 80% { transform: translate(3px, -3px); } 100% { transform: translate(0); } }
+@keyframes waveFx { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
 .motion-fade { animation: fadeIn 1s ease-in-out; }
 .motion-pulse { animation: pulseGlow 1.5s infinite; }
-.motion-zoom { animation: zoomPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.motion-zoom { animation: zoomPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.motion-bounce { animation: bounceIn 0.8s ease; }
 .motion-slide-up { animation: slideUp 0.8s ease-out; }
+.motion-slide-left { animation: slideLeft 0.8s ease-out; }
+.motion-slide-right { animation: slideRight 0.8s ease-out; }
+.motion-shake { animation: shakeFx 0.6s ease; }
+.motion-rotate-in { animation: rotateIn 0.8s ease; }
+.motion-elastic { animation: elasticPop 0.8s ease; }
+.motion-flicker { animation: flickerFx 1.2s infinite; }
+.motion-glitch { animation: glitchFx 0.4s infinite; }
+.motion-wave { animation: waveFx 2s infinite ease-in-out; }
