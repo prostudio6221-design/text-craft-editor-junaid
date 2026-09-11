@@ -20,30 +20,15 @@ document.addEventListener('DOMContentLoaded', () => {
         { value: 'motion-fade', label: 'Fade In' },
         { value: 'motion-pulse', label: 'Pulse Glow' },
         { value: 'motion-zoom', label: 'Pop Zoom' },
-        { value: 'motion-bounce', label: 'Bounce In' },
-        { value: 'motion-slide-up', label: 'Slide Up' },
-        { value: 'motion-slide-left', label: 'Slide In (Left)' },
-        { value: 'motion-slide-right', label: 'Slide In (Right)' },
-        { value: 'motion-shake', label: 'Shake' },
-        { value: 'motion-rotate-in', label: 'Rotate In' },
-        { value: 'motion-elastic', label: 'Elastic Pop' },
-        { value: 'motion-flicker', label: 'Neon Flicker' },
-        { value: 'motion-glitch', label: 'Glitch' },
-        { value: 'motion-wave', label: 'Gentle Wave' }
+        { value: 'motion-slide-up', label: 'Slide Up' }
     ];
 
-    const ALL_PRESETS = [
-        'glass-frost','cyan-glass','gold-shine','neon-fire','metal-3d','holographic',
-        'emerald-glass','purple-glow','chrome-mirror','gradient-fill','neon-sign','foil-rainbow',
-        'comic-pop','paper-cut','sunset-gradient','retro-vhs','frosted'
-    ];
+    const PROJECT_KEY = 'textcraft_project_v9';
 
-    const PROJECT_KEY = 'textcraft_project_v8';
-
-    // INDEXEDDB PERMANENT FONT STORAGE ENGINE
+    // INDEXEDDB FONT ENGINE
     function openFontDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open('TextCraftFontDB_v3', 1);
+            const request = indexedDB.open('TextCraftFontDB_v9', 1);
             request.onupgradeneeded = (e) => {
                 const db = e.target.result;
                 if (!db.objectStoreNames.contains('fonts')) {
@@ -81,11 +66,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const loaded = await font.load();
                     document.fonts.add(loaded);
                     if (!customFonts.includes(fontData.name)) customFonts.push(fontData.name);
-                } catch (err) {
-                    console.error(`Font load fail: ${fontData.name}`, err);
-                }
+                } catch (err) { console.error('Font err:', err); }
             }
-        } catch (err) { console.error('DB error:', err); }
+        } catch (err) { console.error('DB err:', err); }
     }
 
     (async () => {
@@ -93,7 +76,6 @@ document.addEventListener('DOMContentLoaded', () => {
         restoreProject();
     })();
 
-    // AUTOSAVE PROJECT
     function saveProject() {
         const layers = Array.from(canvas.querySelectorAll('.draggable-text')).map(el => ({
             id: el.dataset.id,
@@ -125,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
             el.style.left = data.left || '50px';
             el.style.top = data.top || '50px';
             el.style.fontSize = data.fontSize || '55px';
-            el.style.fontFamily = data.fontFamily || "'Poppins', 'Hind Siliguri', sans-serif";
+            el.style.fontFamily = data.fontFamily || "'Segoe UI', sans-serif";
             el.style.color = data.color || '#ffffff';
 
             if (data.glowColor) applyGlow(el, data.glowColor, data.glowRadius || 10);
@@ -167,12 +149,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeElement) return;
 
         const fontOptions = `
-            <option value="'Poppins', 'Hind Siliguri', sans-serif">English + বাংলা (ডিফল্ট)</option>
-            <option value="'Hind Siliguri', sans-serif">Bangla (Hind Siliguri)</option>
-            <option value="'Noto Sans Bengali', sans-serif">Bangla (Noto Sans Bengali)</option>
+            <option value="'Segoe UI', sans-serif">Standard Font</option>
         ` + customFonts.map(f => `<option value="${f}">${f} (Custom)</option>`).join('');
 
-        const currentFont = activeElement.style.fontFamily || "'Poppins', 'Hind Siliguri', sans-serif";
+        const currentFont = activeElement.style.fontFamily || "'Segoe UI', sans-serif";
         const currentMotion = activeElement.dataset.motion || '';
         const currentColor = rgbToHex(activeElement.style.color) || '#ffffff';
         const currentGlowColor = activeElement.dataset.glowColor || '#00f2fe';
@@ -209,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${MOTIONS.map(m => `<option value="${m.value}">${m.label}</option>`).join('')}
                 </select>
             </div>
-            <button id="delete-layer-btn" class="btn btn-danger" style="width:100%; margin-top:10px;">Delete Element</button>
+            <button id="delete-layer-btn" class="btn btn-danger" style="width:100%; margin-top:10px;">Delete Layer</button>
         `;
 
         document.getElementById('prop-font').value = currentFont;
@@ -313,10 +293,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const keep = Array.from(el.classList).filter(c => !c.startsWith('fx-'));
         el.className = keep.join(' ');
         if (!el.classList.contains('draggable-text')) el.classList.add('draggable-text');
-        if (ALL_PRESETS.includes(presetType)) {
-            el.classList.add(`fx-${presetType}`);
-            el.dataset.preset = presetType;
-        }
+        el.classList.add(`fx-${presetType}`);
+        el.dataset.preset = presetType;
     }
 
     document.querySelectorAll('.preset-card').forEach(btn => {
@@ -351,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.fonts.add(font);
             await saveFontToStorage(fontName, buffer);
             customFonts.push(fontName);
-            alert(`ফন্ট '${fontName}' ব্রাউজারে সেভ হয়েছে!`);
+            alert(`ফন্ট '${fontName}' সফলভাবে যুক্ত হয়েছে!`);
             if (activeElement) renderProperties();
         };
         reader.readAsArrayBuffer(file);
@@ -374,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     resetProjectBtn.addEventListener('click', () => {
-        if (confirm('সব লেয়ার মুছে ফেলতে চান?')) {
+        if (confirm('সব কিছু মুছে ফেলতে চান?')) {
             canvas.innerHTML = '';
             activeElement = null;
             propertiesContent.innerHTML = '<p class="empty-msg">ক্যানভাস থেকে যেকোনো টেক্সট সিলেক্ট করুন</p>';
@@ -384,28 +362,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ----------------------------------------------------------------
-    // PURE NATIVE CANVAS EXPORT ENGINE (Zero Quality Drop)
+    // ULTRA HD TRANSPARENT WEBM RENDER ENGINE (CapCut Supported)
     // ----------------------------------------------------------------
-    function drawLayerToCanvas(ctx, el) {
+    function renderElementToCanvasCtx(ctx, el, scale) {
         const rect = el.getBoundingClientRect();
         const canvasRect = canvas.getBoundingClientRect();
 
-        const x = rect.left - canvasRect.left + (rect.width / 2);
-        const y = rect.top - canvasRect.top + (rect.height / 2);
+        const x = (rect.left - canvasRect.left + (rect.width / 2)) * scale;
+        const y = (rect.top - canvasRect.top + (rect.height / 2)) * scale;
 
         ctx.save();
         ctx.translate(x, y);
 
-        // Apply Native Glow Effect
         const glowColor = el.dataset.glowColor;
-        const glowRadius = parseInt(el.dataset.glowRadius) || 0;
+        const glowRadius = (parseInt(el.dataset.glowRadius) || 0) * scale;
         if (glowRadius > 0 && glowColor) {
             ctx.shadowColor = glowColor;
             ctx.shadowBlur = glowRadius;
         }
 
         const computedStyle = window.getComputedStyle(el);
-        ctx.font = `${computedStyle.fontSize} ${computedStyle.fontFamily}`;
+        const fontSizePx = parseFloat(computedStyle.fontSize) * scale;
+        
+        ctx.font = `${computedStyle.fontWeight} ${fontSizePx}px ${computedStyle.fontFamily}`;
         ctx.fillStyle = computedStyle.color || '#ffffff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -414,40 +393,29 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.restore();
     }
 
-    exportPngBtn.addEventListener('click', () => {
-        const offCanvas = document.createElement('canvas');
-        offCanvas.width = canvas.clientWidth;
-        offCanvas.height = canvas.clientHeight;
-        const ctx = offCanvas.getContext('2d');
-
-        canvas.querySelectorAll('.draggable-text').forEach(el => drawLayerToCanvas(ctx, el));
-
-        const a = document.createElement('a');
-        a.download = 'textcraft-hd.png';
-        a.href = offCanvas.toDataURL('image/png');
-        a.click();
-    });
-
     exportWebmBtn.addEventListener('click', async () => {
         if (activeElement) activeElement.classList.remove('selected');
-        exportWebmBtn.innerText = '⏳ Exporting HD...';
+        exportWebmBtn.innerText = '⏳ Rendering 4K Transparent...';
         exportWebmBtn.disabled = true;
 
         playMotionBtn.click();
 
         const duration = parseInt(videoDurationSelect.value) || 3000;
-        const offCanvas = document.createElement('canvas');
-        offCanvas.width = canvas.clientWidth;
-        offCanvas.height = canvas.clientHeight;
-        const ctx = offCanvas.getContext('2d');
+        const scale = 2; // High Resolution Scaling
 
-        const stream = offCanvas.captureStream(30);
-        let recorder;
-        try {
-            recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
-        } catch(e) {
-            recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        const renderCanvas = document.createElement('canvas');
+        renderCanvas.width = canvas.clientWidth * scale;
+        renderCanvas.height = canvas.clientHeight * scale;
+        const ctx = renderCanvas.getContext('2d', { alpha: true });
+
+        // CapCut Compatibility WebM Mime Types
+        let options = { mimeType: 'video/webm;codecs=vp9' };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+            options = { mimeType: 'video/webm;codecs=vp8' };
         }
+
+        const stream = renderCanvas.captureStream(60);
+        const recorder = new MediaRecorder(stream, options);
 
         const chunks = [];
         recorder.ondataavailable = e => chunks.push(e.data);
@@ -455,10 +423,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const blob = new Blob(chunks, { type: 'video/webm' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = 'textcraft-hd-motion.webm';
+            a.download = 'capcut-ready-transparent-motion.webm';
             a.click();
 
-            exportWebmBtn.innerText = '🎬 Export WebM';
+            exportWebmBtn.innerText = '🎬 WebM (CapCut Ready)';
             exportWebmBtn.disabled = false;
             if (activeElement) activeElement.classList.add('selected');
         };
@@ -468,8 +436,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const startTime = Date.now();
         const renderLoop = () => {
             if (Date.now() - startTime < duration) {
-                ctx.clearRect(0, 0, offCanvas.width, offCanvas.height);
-                canvas.querySelectorAll('.draggable-text').forEach(el => drawLayerToCanvas(ctx, el));
+                ctx.clearRect(0, 0, renderCanvas.width, renderCanvas.height);
+                canvas.querySelectorAll('.draggable-text').forEach(el => renderElementToCanvasCtx(ctx, el, scale));
                 requestAnimationFrame(renderLoop);
             } else {
                 recorder.stop();
@@ -477,6 +445,23 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         renderLoop();
+    });
+
+    exportPngBtn.addEventListener('click', () => {
+        if (activeElement) activeElement.classList.remove('selected');
+        const scale = 2;
+        const pngCanvas = document.createElement('canvas');
+        pngCanvas.width = canvas.clientWidth * scale;
+        pngCanvas.height = canvas.clientHeight * scale;
+        const ctx = pngCanvas.getContext('2d', { alpha: true });
+
+        canvas.querySelectorAll('.draggable-text').forEach(el => renderElementToCanvasCtx(ctx, el, scale));
+
+        const a = document.createElement('a');
+        a.download = 'textcraft-ultra-hd.png';
+        a.href = pngCanvas.toDataURL('image/png');
+        a.click();
+        if (activeElement) activeElement.classList.add('selected');
     });
 
     canvas.addEventListener('click', (e) => {
