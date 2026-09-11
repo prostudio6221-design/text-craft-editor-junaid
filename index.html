@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TextCraft Pro v8</title>
+    <title>TextCraft Pro v9 Ultra HD</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Top Toolbar -->
         <header class="toolbar">
-            <div class="logo">TextCraft <span>Pro v8 Engine</span></div>
+            <div class="logo">TextCraft <span>v9 Ultra HD</span></div>
             <div class="actions">
                 <button id="add-text-btn" class="btn btn-primary">+ Add Text</button>
                 <label for="font-upload" class="btn btn-secondary">📁 Upload Font</label>
@@ -22,53 +21,38 @@
                 <select id="canvas-ratio" class="select-input">
                     <option value="ratio-1-1">1080 x 1080 (Square)</option>
                     <option value="ratio-16-9">1920 x 1080 (Landscape)</option>
-                    <option value="ratio-9-16">1080 x 1920 (Portrait/Reels)</option>
+                    <option value="ratio-9-16">1080 x 1920 (Reels/Shorts)</option>
                 </select>
                 <select id="video-duration" class="select-input">
                     <option value="2000">2 Sec</option>
                     <option value="3000" selected>3 Sec</option>
                     <option value="5000">5 Sec</option>
-                    <option value="8000">8 Sec</option>
                 </select>
-                <button id="export-png-btn" class="btn btn-export">📷 Export PNG</button>
-                <button id="export-webm-btn" class="btn btn-export-alt">🎬 Export WebM</button>
+                <button id="export-png-btn" class="btn btn-export">📷 PNG HD</button>
+                <button id="export-webm-btn" class="btn btn-export-alt">🎬 WebM (CapCut Ready)</button>
             </div>
         </header>
 
         <div class="main-content">
-            <!-- Sidebar Left: Layers & All 17 Presets -->
             <aside class="sidebar-left">
                 <div class="section-title">LAYERS</div>
                 <div id="layer-list" class="layer-container"></div>
 
                 <div class="section-title" style="margin-top: 15px;">PREMIUM PRESETS</div>
                 <div class="preset-grid">
-                    <button class="preset-card" data-preset="glass-frost">Glass Frost</button>
                     <button class="preset-card" data-preset="cyan-glass">Cyan Glass</button>
-                    <button class="preset-card" data-preset="gold-shine">Gold Shine</button>
                     <button class="preset-card" data-preset="neon-fire">Neon Fire</button>
-                    <button class="preset-card" data-preset="metal-3d">Metal 3D</button>
-                    <button class="preset-card" data-preset="holographic">Holographic</button>
-                    <button class="preset-card" data-preset="emerald-glass">Emerald</button>
+                    <button class="preset-card" data-preset="gold-shine">Gold Shine</button>
                     <button class="preset-card" data-preset="purple-glow">Purple Glow</button>
-                    <button class="preset-card" data-preset="chrome-mirror">Chrome</button>
-                    <button class="preset-card" data-preset="gradient-fill">Gradient</button>
-                    <button class="preset-card" data-preset="neon-sign">Neon Sign</button>
-                    <button class="preset-card" data-preset="foil-rainbow">Rainbow</button>
-                    <button class="preset-card" data-preset="comic-pop">Comic Pop</button>
-                    <button class="preset-card" data-preset="paper-cut">Paper Cut</button>
-                    <button class="preset-card" data-preset="sunset-gradient">Sunset</button>
-                    <button class="preset-card" data-preset="retro-vhs">Retro VHS</button>
-                    <button class="preset-card" data-preset="frosted">Frosted</button>
+                    <button class="preset-card" data-preset="emerald-glass">Emerald</button>
+                    <button class="preset-card" data-preset="metal-3d">Metal 3D</button>
                 </div>
             </aside>
 
-            <!-- Canvas Viewport -->
             <main class="canvas-viewport">
                 <div id="canvas" class="transparent-canvas ratio-1-1"></div>
             </main>
 
-            <!-- Sidebar Right: Deep Customization Properties -->
             <aside class="sidebar-right">
                 <div class="section-title">PROPERTIES & FX CONTROL</div>
                 <div id="properties-content">
