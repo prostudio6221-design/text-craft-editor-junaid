@@ -8,10 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportWebmBtn = document.getElementById('export-webm-btn');
     const playMotionBtn = document.getElementById('play-motion-btn');
     const canvasRatio = document.getElementById('canvas-ratio');
+    const videoDurationSelect = document.getElementById('video-duration');
     const resetProjectBtn = document.getElementById('reset-project-btn');
 
     let activeElement = null;
-    let customFonts = []; // font names currently loaded into document.fonts
+    let customFonts = [];
     let uid = 0;
 
     const MOTIONS = [
@@ -19,26 +20,17 @@ document.addEventListener('DOMContentLoaded', () => {
         { value: 'motion-fade', label: 'Fade In' },
         { value: 'motion-pulse', label: 'Pulse Glow' },
         { value: 'motion-zoom', label: 'Pop Zoom' },
-        { value: 'motion-bounce', label: 'Bounce In' },
-        { value: 'motion-slide-up', label: 'Slide Up' },
-        { value: 'motion-slide-left', label: 'Slide In (Left)' },
-        { value: 'motion-slide-right', label: 'Slide In (Right)' },
-        { value: 'motion-shake', label: 'Shake' },
-        { value: 'motion-rotate-in', label: 'Rotate In' },
-        { value: 'motion-elastic', label: 'Elastic Pop' },
-        { value: 'motion-flicker', label: 'Neon Flicker' },
-        { value: 'motion-glitch', label: 'Glitch' },
-        { value: 'motion-wave', label: 'Gentle Wave' },
+        { value: 'motion-slide-up', label: 'Slide Up' }
     ];
 
-    const PROJECT_KEY = 'textcraft_project_v6';
+    const PROJECT_KEY = 'textcraft_project_v7';
 
     // ----------------------------------------------------------------
-    // PERMANENT FONT STORAGE ENGINE (IndexedDB)
+    // INDEXEDDB FONT SYSTEM (Lifetime font storage)
     // ----------------------------------------------------------------
     function openFontDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open('TextCraftFontDB', 1);
+            const request = indexedDB.open('TextCraftFontDB_v2', 1);
             request.onupgradeneeded = (e) => {
                 const db = e.target.result;
                 if (!db.objectStoreNames.contains('fonts')) {
@@ -60,9 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Loads every stored font into document.fonts and resolves once ALL
-    // are actually ready to paint. Fonts used to "disappear" because the
-    // canvas was restored before the async font load finished.
     async function loadStoredFonts() {
         try {
             const db = await openFontDB();
@@ -73,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 request.onerror = (e) => reject(e.target.error);
             });
 
-            const loadPromises = records.map(async (fontData) => {
+            for (const fontData of records) {
                 try {
                     const font = new FontFace(fontData.name, fontData.data);
                     const loaded = await font.load();
@@ -82,130 +71,86 @@ document.addEventListener('DOMContentLoaded', () => {
                         customFonts.push(fontData.name);
                     }
                 } catch (err) {
-                    console.error(`Font "${fontData.name}" failed to load:`, err);
+                    console.error(`Font "${fontData.name}" failed:`, err);
                 }
-            });
-
-            await Promise.all(loadPromises);
+            }
         } catch (err) {
             console.error('Failed to load saved fonts:', err);
         }
     }
 
+    // Load fonts and initial state
+    (async () => {
+        await loadStoredFonts();
+        restoreProject();
+    })();
+
     // ----------------------------------------------------------------
-    // PROJECT AUTOSAVE (localStorage) — keeps every layer, preset,
-    // motion, position and font choice across reloads.
+    // AUTOSAVE ENGINE
     // ----------------------------------------------------------------
-    function serializeLayer(el) {
-        return {
+    function saveProject() {
+        const layers = Array.from(canvas.querySelectorAll('.draggable-text')).map(el => ({
             id: el.dataset.id,
             text: el.innerText,
             left: el.style.left,
             top: el.style.top,
             fontSize: el.style.fontSize,
             fontFamily: el.style.fontFamily,
-            letterSpacing: el.style.letterSpacing,
+            color: el.style.color,
+            glowColor: el.dataset.glowColor || '',
+            glowRadius: el.dataset.glowRadius || '0',
             preset: el.dataset.preset || '',
-            motion: el.dataset.motion || '',
-        };
-    }
+            motion: el.dataset.motion || ''
+        }));
 
-    function saveProject() {
-        const layers = Array.from(canvas.querySelectorAll('.draggable-text')).map(serializeLayer);
-        const project = {
-            ratio: canvasRatio.value,
-            layers,
-        };
-        try {
-            localStorage.setItem(PROJECT_KEY, JSON.stringify(project));
-        } catch (err) {
-            console.error('Autosave failed:', err);
-        }
+        const project = { ratio: canvasRatio.value, layers };
+        localStorage.setItem(PROJECT_KEY, JSON.stringify(project));
     }
 
     function restoreProject() {
-        let project;
+        let project = null;
         try {
-            project = JSON.parse(localStorage.getItem(PROJECT_KEY) || 'null');
-        } catch (err) {
-            project = null;
-        }
-        if (!project || !Array.isArray(project.layers) || project.layers.length === 0) return false;
+            project = JSON.parse(localStorage.getItem(PROJECT_KEY));
+        } catch(e) {}
 
-        if (project.ratio) {
-            canvasRatio.value = project.ratio;
-            canvas.className = `transparent-canvas ${project.ratio}`;
-        }
+        if (!project || !project.layers) return;
 
-        project.layers.forEach((layerData) => {
-            const el = createTextElement(layerData.text || 'Text');
-            el.dataset.id = layerData.id || String(uid++);
-            el.style.left = layerData.left || '50px';
-            el.style.top = layerData.top || '100px';
-            el.style.fontSize = layerData.fontSize || '55px';
-            el.style.fontFamily = layerData.fontFamily || "'Poppins', 'Hind Siliguri', sans-serif";
-            el.style.letterSpacing = layerData.letterSpacing || '0px';
-            if (layerData.preset) applyPresetToElement(el, layerData.preset);
-            if (layerData.motion) {
-                el.classList.add(layerData.motion);
-                el.dataset.motion = layerData.motion;
+        canvasRatio.value = project.ratio || 'ratio-1-1';
+        canvas.className = `transparent-canvas ${canvasRatio.value}`;
+
+        project.layers.forEach(data => {
+            const el = createTextElement(data.text);
+            el.dataset.id = data.id || String(uid++);
+            el.style.left = data.left || '50px';
+            el.style.top = data.top || '50px';
+            el.style.fontSize = data.fontSize || '50px';
+            el.style.fontFamily = data.fontFamily || 'sans-serif';
+            el.style.color = data.color || '#ffffff';
+
+            if (data.glowColor) {
+                applyGlow(el, data.glowColor, data.glowRadius || 10);
             }
+            if (data.preset) applyPresetToElement(el, data.preset);
+            if (data.motion) {
+                el.classList.add(data.motion);
+                el.dataset.motion = data.motion;
+            }
+
             canvas.appendChild(el);
         });
-
-        return true;
+        updateLayers();
     }
 
     // ----------------------------------------------------------------
-    // BOOTSTRAP: load fonts first, THEN restore the saved project, so
-    // custom fonts are guaranteed ready before layers try to use them.
+    // CUSTOMIZATIONS & PROPERTIES
     // ----------------------------------------------------------------
-    (async () => {
-        await loadStoredFonts();
-        const restored = restoreProject();
-        if (restored) updateLayers();
-    })();
-
-    canvasRatio.addEventListener('change', (e) => {
-        canvas.className = `transparent-canvas ${e.target.value}`;
-        saveProject();
-    });
-
-    // Font Upload Handler
-    fontUpload.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const fontName = file.name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '') + '_' + Date.now().toString(36);
-        const reader = new FileReader();
-
-        reader.onload = async (event) => {
-            const buffer = event.target.result;
-            try {
-                const font = new FontFace(fontName, buffer);
-                const loadedFont = await font.load();
-                document.fonts.add(loadedFont);
-                await saveFontToStorage(fontName, buffer);
-                if (!customFonts.includes(fontName)) {
-                    customFonts.push(fontName);
-                }
-                alert(`ফন্ট '${fontName}' ব্রাউজারে স্থায়ীভাবে সেভ হয়েছে!`);
-                if (activeElement) renderProperties();
-            } catch (err) {
-                console.error('Font load failed:', err);
-                alert('ফন্ট লোড করা যায়নি। ফাইলটি সঠিক .ttf/.otf/.woff কিনা যাচাই করুন।');
-            }
-        };
-        reader.readAsArrayBuffer(file);
-        fontUpload.value = '';
-    });
-
     function createTextElement(text) {
         const textEl = document.createElement('div');
         textEl.className = 'draggable-text';
         textEl.contentEditable = true;
         textEl.innerText = text;
         textEl.dataset.id = String(uid++);
+        textEl.style.color = '#ffffff';
 
         enableDragging(textEl);
         textEl.addEventListener('click', (e) => {
@@ -213,82 +158,36 @@ document.addEventListener('DOMContentLoaded', () => {
             selectText(textEl);
         });
         textEl.addEventListener('input', () => {
-            updateLayers();
+            updateLayerLabelOnly(textEl);
             saveProject();
         });
-        textEl.addEventListener('blur', saveProject);
 
         return textEl;
     }
 
-    addTextBtn.addEventListener('click', () => {
-        const textEl = createTextElement('Breakdown');
-        textEl.style.left = '50px';
-        textEl.style.top = '100px';
-        textEl.style.fontSize = '55px';
-        textEl.style.fontFamily = "'Poppins', 'Hind Siliguri', sans-serif";
-
-        applyPresetToElement(textEl, 'cyan-glass');
-
-        canvas.appendChild(textEl);
-        selectText(textEl);
-        updateLayers();
-        saveProject();
-    });
-
-    function enableDragging(el) {
-        let isDragging = false;
-        let startX, startY, initialLeft, initialTop;
-
-        el.addEventListener('mousedown', (e) => {
-            if (document.activeElement === el) return;
-            isDragging = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            initialLeft = el.offsetLeft;
-            initialTop = el.offsetTop;
-
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
-        });
-
-        function onMouseMove(e) {
-            if (!isDragging) return;
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            el.style.left = `${initialLeft + dx}px`;
-            el.style.top = `${initialTop + dy}px`;
+    function applyGlow(el, color, radius) {
+        el.dataset.glowColor = color;
+        el.dataset.glowRadius = radius;
+        if (radius > 0) {
+            el.style.textShadow = `0 0 ${radius}px ${color}, 0 0 ${radius*2}px ${color}`;
+        } else {
+            el.style.textShadow = 'none';
         }
-
-        function onMouseUp() {
-            if (isDragging) saveProject();
-            isDragging = false;
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-        }
-    }
-
-    function selectText(el) {
-        if (activeElement) activeElement.classList.remove('selected');
-        activeElement = el;
-        activeElement.classList.add('selected');
-        renderProperties();
-        updateLayers();
     }
 
     function renderProperties() {
         if (!activeElement) return;
 
         const fontOptions = `
-            <option value="'Poppins', 'Hind Siliguri', sans-serif">English + বাংলা (ডিফল্ট)</option>
+            <option value="sans-serif">Default Sans-Serif</option>
             <option value="'Hind Siliguri', sans-serif">Bangla (Hind Siliguri)</option>
-            <option value="'Noto Sans Bengali', sans-serif">Bangla (Noto Sans Bengali)</option>
-        ` + customFonts.map(f => `<option value="${f}">${f} (আপলোড করা)</option>`).join('');
+        ` + customFonts.map(f => `<option value="${f}">${f}</option>`).join('');
 
-        const currentFont = activeElement.style.fontFamily || "'Poppins', 'Hind Siliguri', sans-serif";
+        const currentFont = activeElement.style.fontFamily || 'sans-serif';
         const currentMotion = activeElement.dataset.motion || '';
-        const motionOptions = MOTIONS.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
-        const letterSpacing = parseFloat(activeElement.style.letterSpacing) || 0;
+        const currentColor = rgbToHex(activeElement.style.color) || '#ffffff';
+        const currentGlowColor = activeElement.dataset.glowColor || '#00f2fe';
+        const currentGlowRadius = activeElement.dataset.glowRadius || 0;
 
         propertiesContent.innerHTML = `
             <div class="prop-group">
@@ -296,30 +195,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 <input type="text" id="prop-text-input" class="prop-input" value="${activeElement.innerText}">
             </div>
             <div class="prop-group">
+                <label>Text Color</label>
+                <input type="color" id="prop-color" class="prop-input" value="${currentColor}">
+            </div>
+            <div class="prop-group">
+                <label>Glow Color</label>
+                <input type="color" id="prop-glow-color" class="prop-input" value="${currentGlowColor}">
+            </div>
+            <div class="prop-group">
+                <label>Glow Radius (${currentGlowRadius}px)</label>
+                <input type="range" id="prop-glow-radius" min="0" max="40" value="${currentGlowRadius}">
+            </div>
+            <div class="prop-group">
                 <label>Font Family</label>
                 <select id="prop-font" class="prop-input">${fontOptions}</select>
             </div>
             <div class="prop-group">
-                <label>Font Size <span class="range-value" id="size-val">${parseInt(activeElement.style.fontSize) || 55}px</span></label>
-                <input type="range" id="prop-size" min="16" max="150" value="${parseInt(activeElement.style.fontSize) || 55}">
-            </div>
-            <div class="prop-group">
-                <label>Letter Spacing <span class="range-value" id="ls-val">${letterSpacing}px</span> — বাংলা লেখায় 0 রাখুন যাতে যুক্তাক্ষর না ভাঙে</label>
-                <input type="range" id="prop-letter-spacing" min="-2" max="10" step="0.5" value="${letterSpacing}">
+                <label>Font Size</label>
+                <input type="range" id="prop-size" min="16" max="150" value="${parseInt(activeElement.style.fontSize) || 50}">
             </div>
             <div class="prop-group">
                 <label>Motion FX</label>
-                <select id="prop-motion" class="prop-input">${motionOptions}</select>
+                <select id="prop-motion" class="prop-input">
+                    ${MOTIONS.map(m => `<option value="${m.value}">${m.label}</option>`).join('')}
+                </select>
             </div>
-            <button id="delete-layer-btn" style="width:100%; background:#ef4444; color:white; border:none; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold; margin-top:10px;">Delete Element</button>
+            <button id="delete-layer-btn" class="btn btn-danger" style="width:100%; margin-top:10px;">Delete Layer</button>
         `;
 
-        propertiesContent.querySelector('#prop-font').value = currentFont;
-        propertiesContent.querySelector('#prop-motion').value = currentMotion;
+        document.getElementById('prop-font').value = currentFont;
+        document.getElementById('prop-motion').value = currentMotion;
 
+        // Listeners for Live Editing
         document.getElementById('prop-text-input').addEventListener('input', (e) => {
             activeElement.innerText = e.target.value;
-            updateLayers();
+            updateLayerLabelOnly(activeElement);
+            saveProject();
+        });
+        document.getElementById('prop-color').addEventListener('input', (e) => {
+            activeElement.style.color = e.target.value;
+            saveProject();
+        });
+        document.getElementById('prop-glow-color').addEventListener('input', (e) => {
+            const rad = document.getElementById('prop-glow-radius').value;
+            applyGlow(activeElement, e.target.value, rad);
+            saveProject();
+        });
+        document.getElementById('prop-glow-radius').addEventListener('input', (e) => {
+            const col = document.getElementById('prop-glow-color').value;
+            applyGlow(activeElement, col, e.target.value);
             saveProject();
         });
         document.getElementById('prop-font').addEventListener('change', (e) => {
@@ -328,19 +252,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.getElementById('prop-size').addEventListener('input', (e) => {
             activeElement.style.fontSize = `${e.target.value}px`;
-            document.getElementById('size-val').textContent = `${e.target.value}px`;
+            saveProject();
         });
-        document.getElementById('prop-size').addEventListener('change', saveProject);
-        document.getElementById('prop-letter-spacing').addEventListener('input', (e) => {
-            activeElement.style.letterSpacing = `${e.target.value}px`;
-            document.getElementById('ls-val').textContent = `${e.target.value}px`;
-        });
-        document.getElementById('prop-letter-spacing').addEventListener('change', saveProject);
         document.getElementById('prop-motion').addEventListener('change', (e) => {
-            const chosen = e.target.value;
-            MOTIONS.forEach(m => { if (m.value) activeElement.classList.remove(m.value); });
-            if (chosen) activeElement.classList.add(chosen);
-            activeElement.dataset.motion = chosen;
+            MOTIONS.forEach(m => { if(m.value) activeElement.classList.remove(m.value); });
+            if (e.target.value) activeElement.classList.add(e.target.value);
+            activeElement.dataset.motion = e.target.value;
             saveProject();
         });
         document.getElementById('delete-layer-btn').addEventListener('click', () => {
@@ -352,23 +269,68 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const ALL_PRESETS = ['glass-frost','cyan-glass','gold-shine','neon-fire','metal-3d','holographic',
-        'emerald-glass','purple-glow','chrome-mirror','gradient-fill','neon-sign','foil-rainbow',
-        'comic-pop','paper-cut','sunset-gradient','retro-vhs','frosted'];
+    // Helper functions
+    function rgbToHex(rgb) {
+        if (!rgb) return '#ffffff';
+        const res = rgb.match(/\d+/g);
+        return res ? "#" + ((1 << 24) + (+res[0] << 16) + (+res[1] << 8) + +res[2]).toString(16).slice(1) : rgb;
+    }
 
-    function applyPresetToElement(el, presetType) {
-        // Strip any previous fx-* class but keep base + selection + motion classes intact
-        const keep = Array.from(el.classList).filter(c => !c.startsWith('fx-'));
-        el.className = keep.join(' ');
-        if (!el.classList.contains('draggable-text')) el.classList.add('draggable-text');
+    function selectText(el) {
+        if (activeElement) activeElement.classList.remove('selected');
+        activeElement = el;
+        activeElement.classList.add('selected');
+        renderProperties();
+        updateLayers();
+    }
 
-        if (ALL_PRESETS.includes(presetType)) {
-            el.classList.add(`fx-${presetType}`);
-            el.dataset.preset = presetType;
+    function enableDragging(el) {
+        let isDragging = false, startX, startY, initLeft, initTop;
+        el.addEventListener('mousedown', (e) => {
+            if (document.activeElement === el) return;
+            isDragging = true;
+            startX = e.clientX; startY = e.clientY;
+            initLeft = el.offsetLeft; initTop = el.offsetTop;
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+        function onMove(e) {
+            if (!isDragging) return;
+            el.style.left = `${initLeft + e.clientX - startX}px`;
+            el.style.top = `${initTop + e.clientY - startY}px`;
+        }
+        function onUp() {
+            if (isDragging) saveProject();
+            isDragging = false;
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
         }
     }
 
-    document.querySelectorAll('.preset-card[data-preset]').forEach(btn => {
+    function updateLayers() {
+        layerList.innerHTML = '';
+        canvas.querySelectorAll('.draggable-text').forEach((item, idx) => {
+            const card = document.createElement('div');
+            card.className = 'layer-card' + (item === activeElement ? ' active-layer' : '');
+            card.dataset.id = item.dataset.id;
+            card.innerHTML = `<span>Layer ${idx + 1}</span> <b>${item.innerText.substring(0, 8)}</b>`;
+            card.addEventListener('click', () => selectText(item));
+            layerList.appendChild(card);
+        });
+    }
+
+    function updateLayerLabelOnly(el) {
+        const card = layerList.querySelector(`.layer-card[data-id="${el.dataset.id}"]`);
+        if (card) card.querySelector('b').innerText = el.innerText.substring(0, 8);
+    }
+
+    function applyPresetToElement(el, presetType) {
+        el.className = 'draggable-text' + (el === activeElement ? ' selected' : '');
+        el.classList.add(`fx-${presetType}`);
+        el.dataset.preset = presetType;
+    }
+
+    document.querySelectorAll('.preset-card').forEach(btn => {
         btn.addEventListener('click', () => {
             if (!activeElement) return;
             applyPresetToElement(activeElement, btn.dataset.preset);
@@ -376,22 +338,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    function updateLayers() {
-        layerList.innerHTML = '';
-        const items = canvas.querySelectorAll('.draggable-text');
-        items.forEach((item, idx) => {
-            const card = document.createElement('div');
-            card.className = 'layer-card' + (item === activeElement ? ' active-layer' : '');
-            const label = (item.innerText || '').substring(0, 10);
-            card.innerHTML = `<span>Layer ${idx + 1}</span> <b>${label}${item.innerText.length > 10 ? '…' : ''}</b>`;
-            card.addEventListener('click', () => selectText(item));
-            layerList.appendChild(card);
-        });
-    }
+    addTextBtn.addEventListener('click', () => {
+        const el = createTextElement('নতুন টেক্সট');
+        canvas.appendChild(el);
+        selectText(el);
+        updateLayers();
+        saveProject();
+    });
 
-    function triggerMotion() {
-        const items = canvas.querySelectorAll('.draggable-text');
-        items.forEach(item => {
+    fontUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const fontName = file.name.split('.')[0].replace(/[^a-zA-Z0-9]/g, '') + '_' + Date.now().toString(36);
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            const buffer = evt.target.result;
+            const font = new FontFace(fontName, buffer);
+            await font.load();
+            document.fonts.add(font);
+            await saveFontToStorage(fontName, buffer);
+            customFonts.push(fontName);
+            alert(`Font '${fontName}' Permanent Load Complete!`);
+            if (activeElement) renderProperties();
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    playMotionBtn.addEventListener('click', () => {
+        canvas.querySelectorAll('.draggable-text').forEach(item => {
             const motion = item.dataset.motion;
             if (motion) {
                 item.classList.remove(motion);
@@ -399,77 +373,93 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.classList.add(motion);
             }
         });
-    }
+    });
 
-    playMotionBtn.addEventListener('click', triggerMotion);
-
-    resetProjectBtn.addEventListener('click', () => {
-        if (!confirm('ক্যানভাসের সব লেয়ার মুছে ফেলতে চান?')) return;
-        canvas.querySelectorAll('.draggable-text').forEach(el => el.remove());
-        activeElement = null;
-        propertiesContent.innerHTML = '<p class="empty-msg">ক্যানভাস থেকে যেকোনো টেক্সট সিলেক্ট করুন</p>';
-        updateLayers();
+    canvasRatio.addEventListener('change', (e) => {
+        canvas.className = `transparent-canvas ${e.target.value}`;
         saveProject();
     });
 
-    exportPngBtn.addEventListener('click', () => {
-        if (activeElement) activeElement.classList.remove('selected');
-        html2canvas(canvas, { backgroundColor: null, scale: 2 }).then(cvs => {
-            const a = document.createElement('a');
-            a.download = 'textcraft-static.png';
-            a.href = cvs.toDataURL('image/png');
-            a.click();
-            if (activeElement) activeElement.classList.add('selected');
-        });
+    resetProjectBtn.addEventListener('click', () => {
+        if (confirm('সব লেয়ার মুছে ফেলবেন?')) {
+            canvas.innerHTML = '';
+            activeElement = null;
+            propertiesContent.innerHTML = '<p class="empty-msg">ক্যানভাস থেকে যেকোনো টেক্সট সিলেক্ট করুন</p>';
+            updateLayers();
+            saveProject();
+        }
     });
 
+    // ----------------------------------------------------------------
+    // PERFECT WEBM RECORDING ENGINE (Fixes Black Screen & Dark Shadows)
+    // ----------------------------------------------------------------
     exportWebmBtn.addEventListener('click', async () => {
         if (activeElement) activeElement.classList.remove('selected');
-        exportWebmBtn.innerText = '⏳ Recording FX...';
+        exportWebmBtn.innerText = '⏳ Exporting...';
         exportWebmBtn.disabled = true;
 
-        triggerMotion();
+        playMotionBtn.click();
 
+        const duration = parseInt(videoDurationSelect.value) || 3000;
         const offscreenCanvas = document.createElement('canvas');
         offscreenCanvas.width = canvas.clientWidth;
         offscreenCanvas.height = canvas.clientHeight;
         const ctx = offscreenCanvas.getContext('2d');
 
         const stream = offscreenCanvas.captureStream(30);
-        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
-        const chunks = [];
+        let recorder;
+        try {
+            recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+        } catch(e) {
+            recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        }
 
+        const chunks = [];
         recorder.ondataavailable = e => chunks.push(e.data);
         recorder.onstop = () => {
             const blob = new Blob(chunks, { type: 'video/webm' });
-            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = 'textcraft-motion.webm';
+            a.href = URL.createObjectURL(blob);
+            a.download = 'textcraft-animation.webm';
             a.click();
 
-            exportWebmBtn.innerText = '🎬 Export Motion (.webm)';
+            exportWebmBtn.innerText = '🎬 Export WebM';
             exportWebmBtn.disabled = false;
             if (activeElement) activeElement.classList.add('selected');
         };
 
         recorder.start();
 
-        let duration = 2400;
-        let startTime = Date.now();
-
-        const renderFrame = async () => {
+        const startTime = Date.now();
+        const renderLoop = async () => {
             if (Date.now() - startTime < duration) {
-                const cvs = await html2canvas(canvas, { backgroundColor: null, scale: 1 });
+                // background: null keeps transparency intact without black box
+                const cvs = await html2canvas(canvas, { 
+                    backgroundColor: null, 
+                    scale: 1,
+                    logging: false,
+                    useCORS: true
+                });
                 ctx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
                 ctx.drawImage(cvs, 0, 0);
-                requestAnimationFrame(renderFrame);
+                setTimeout(renderLoop, 1000 / 30);
             } else {
                 recorder.stop();
             }
         };
 
-        renderFrame();
+        renderLoop();
+    });
+
+    exportPngBtn.addEventListener('click', () => {
+        if (activeElement) activeElement.classList.remove('selected');
+        html2canvas(canvas, { backgroundColor: null, scale: 2 }).then(cvs => {
+            const a = document.createElement('a');
+            a.download = 'textcraft-image.png';
+            a.href = cvs.toDataURL('image/png');
+            a.click();
+            if (activeElement) activeElement.classList.add('selected');
+        });
     });
 
     canvas.addEventListener('click', (e) => {
