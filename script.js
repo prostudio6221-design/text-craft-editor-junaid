@@ -20,17 +20,30 @@ document.addEventListener('DOMContentLoaded', () => {
         { value: 'motion-fade', label: 'Fade In' },
         { value: 'motion-pulse', label: 'Pulse Glow' },
         { value: 'motion-zoom', label: 'Pop Zoom' },
-        { value: 'motion-slide-up', label: 'Slide Up' }
+        { value: 'motion-bounce', label: 'Bounce In' },
+        { value: 'motion-slide-up', label: 'Slide Up' },
+        { value: 'motion-slide-left', label: 'Slide In (Left)' },
+        { value: 'motion-slide-right', label: 'Slide In (Right)' },
+        { value: 'motion-shake', label: 'Shake' },
+        { value: 'motion-rotate-in', label: 'Rotate In' },
+        { value: 'motion-elastic', label: 'Elastic Pop' },
+        { value: 'motion-flicker', label: 'Neon Flicker' },
+        { value: 'motion-glitch', label: 'Glitch' },
+        { value: 'motion-wave', label: 'Gentle Wave' }
     ];
 
-    const PROJECT_KEY = 'textcraft_project_v7';
+    const ALL_PRESETS = [
+        'glass-frost','cyan-glass','gold-shine','neon-fire','metal-3d','holographic',
+        'emerald-glass','purple-glow','chrome-mirror','gradient-fill','neon-sign','foil-rainbow',
+        'comic-pop','paper-cut','sunset-gradient','retro-vhs','frosted'
+    ];
 
-    // ----------------------------------------------------------------
-    // INDEXEDDB FONT SYSTEM (Lifetime font storage)
-    // ----------------------------------------------------------------
+    const PROJECT_KEY = 'textcraft_project_v8';
+
+    // INDEXEDDB PERMANENT FONT STORAGE ENGINE
     function openFontDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open('TextCraftFontDB_v2', 1);
+            const request = indexedDB.open('TextCraftFontDB_v3', 1);
             request.onupgradeneeded = (e) => {
                 const db = e.target.result;
                 if (!db.objectStoreNames.contains('fonts')) {
@@ -67,27 +80,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     const font = new FontFace(fontData.name, fontData.data);
                     const loaded = await font.load();
                     document.fonts.add(loaded);
-                    if (!customFonts.includes(fontData.name)) {
-                        customFonts.push(fontData.name);
-                    }
+                    if (!customFonts.includes(fontData.name)) customFonts.push(fontData.name);
                 } catch (err) {
-                    console.error(`Font "${fontData.name}" failed:`, err);
+                    console.error(`Font load fail: ${fontData.name}`, err);
                 }
             }
-        } catch (err) {
-            console.error('Failed to load saved fonts:', err);
-        }
+        } catch (err) { console.error('DB error:', err); }
     }
 
-    // Load fonts and initial state
     (async () => {
         await loadStoredFonts();
         restoreProject();
     })();
 
-    // ----------------------------------------------------------------
-    // AUTOSAVE ENGINE
-    // ----------------------------------------------------------------
+    // AUTOSAVE PROJECT
     function saveProject() {
         const layers = Array.from(canvas.querySelectorAll('.draggable-text')).map(el => ({
             id: el.dataset.id,
@@ -102,17 +108,12 @@ document.addEventListener('DOMContentLoaded', () => {
             preset: el.dataset.preset || '',
             motion: el.dataset.motion || ''
         }));
-
-        const project = { ratio: canvasRatio.value, layers };
-        localStorage.setItem(PROJECT_KEY, JSON.stringify(project));
+        localStorage.setItem(PROJECT_KEY, JSON.stringify({ ratio: canvasRatio.value, layers }));
     }
 
     function restoreProject() {
         let project = null;
-        try {
-            project = JSON.parse(localStorage.getItem(PROJECT_KEY));
-        } catch(e) {}
-
+        try { project = JSON.parse(localStorage.getItem(PROJECT_KEY)); } catch(e){}
         if (!project || !project.layers) return;
 
         canvasRatio.value = project.ratio || 'ratio-1-1';
@@ -123,27 +124,21 @@ document.addEventListener('DOMContentLoaded', () => {
             el.dataset.id = data.id || String(uid++);
             el.style.left = data.left || '50px';
             el.style.top = data.top || '50px';
-            el.style.fontSize = data.fontSize || '50px';
-            el.style.fontFamily = data.fontFamily || 'sans-serif';
+            el.style.fontSize = data.fontSize || '55px';
+            el.style.fontFamily = data.fontFamily || "'Poppins', 'Hind Siliguri', sans-serif";
             el.style.color = data.color || '#ffffff';
 
-            if (data.glowColor) {
-                applyGlow(el, data.glowColor, data.glowRadius || 10);
-            }
+            if (data.glowColor) applyGlow(el, data.glowColor, data.glowRadius || 10);
             if (data.preset) applyPresetToElement(el, data.preset);
             if (data.motion) {
                 el.classList.add(data.motion);
                 el.dataset.motion = data.motion;
             }
-
             canvas.appendChild(el);
         });
         updateLayers();
     }
 
-    // ----------------------------------------------------------------
-    // CUSTOMIZATIONS & PROPERTIES
-    // ----------------------------------------------------------------
     function createTextElement(text) {
         const textEl = document.createElement('div');
         textEl.className = 'draggable-text';
@@ -153,22 +148,15 @@ document.addEventListener('DOMContentLoaded', () => {
         textEl.style.color = '#ffffff';
 
         enableDragging(textEl);
-        textEl.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectText(textEl);
-        });
-        textEl.addEventListener('input', () => {
-            updateLayerLabelOnly(textEl);
-            saveProject();
-        });
-
+        textEl.addEventListener('click', (e) => { e.stopPropagation(); selectText(textEl); });
+        textEl.addEventListener('input', () => { updateLayerLabelOnly(textEl); saveProject(); });
         return textEl;
     }
 
     function applyGlow(el, color, radius) {
         el.dataset.glowColor = color;
         el.dataset.glowRadius = radius;
-        if (radius > 0) {
+        if (parseInt(radius) > 0) {
             el.style.textShadow = `0 0 ${radius}px ${color}, 0 0 ${radius*2}px ${color}`;
         } else {
             el.style.textShadow = 'none';
@@ -179,15 +167,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeElement) return;
 
         const fontOptions = `
-            <option value="sans-serif">Default Sans-Serif</option>
+            <option value="'Poppins', 'Hind Siliguri', sans-serif">English + বাংলা (ডিফল্ট)</option>
             <option value="'Hind Siliguri', sans-serif">Bangla (Hind Siliguri)</option>
-        ` + customFonts.map(f => `<option value="${f}">${f}</option>`).join('');
+            <option value="'Noto Sans Bengali', sans-serif">Bangla (Noto Sans Bengali)</option>
+        ` + customFonts.map(f => `<option value="${f}">${f} (Custom)</option>`).join('');
 
-        const currentFont = activeElement.style.fontFamily || 'sans-serif';
+        const currentFont = activeElement.style.fontFamily || "'Poppins', 'Hind Siliguri', sans-serif";
         const currentMotion = activeElement.dataset.motion || '';
         const currentColor = rgbToHex(activeElement.style.color) || '#ffffff';
         const currentGlowColor = activeElement.dataset.glowColor || '#00f2fe';
-        const currentGlowRadius = activeElement.dataset.glowRadius || 0;
+        const currentGlowRadius = activeElement.dataset.glowRadius || '0';
 
         propertiesContent.innerHTML = `
             <div class="prop-group">
@@ -199,20 +188,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 <input type="color" id="prop-color" class="prop-input" value="${currentColor}">
             </div>
             <div class="prop-group">
-                <label>Glow Color</label>
+                <label>Neon Glow Color</label>
                 <input type="color" id="prop-glow-color" class="prop-input" value="${currentGlowColor}">
             </div>
             <div class="prop-group">
-                <label>Glow Radius (${currentGlowRadius}px)</label>
-                <input type="range" id="prop-glow-radius" min="0" max="40" value="${currentGlowRadius}">
+                <label>Glow Power (${currentGlowRadius}px)</label>
+                <input type="range" id="prop-glow-radius" min="0" max="50" value="${currentGlowRadius}">
             </div>
             <div class="prop-group">
                 <label>Font Family</label>
                 <select id="prop-font" class="prop-input">${fontOptions}</select>
             </div>
             <div class="prop-group">
-                <label>Font Size</label>
-                <input type="range" id="prop-size" min="16" max="150" value="${parseInt(activeElement.style.fontSize) || 50}">
+                <label>Font Size (${parseInt(activeElement.style.fontSize) || 55}px)</label>
+                <input type="range" id="prop-size" min="16" max="150" value="${parseInt(activeElement.style.fontSize) || 55}">
             </div>
             <div class="prop-group">
                 <label>Motion FX</label>
@@ -220,13 +209,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${MOTIONS.map(m => `<option value="${m.value}">${m.label}</option>`).join('')}
                 </select>
             </div>
-            <button id="delete-layer-btn" class="btn btn-danger" style="width:100%; margin-top:10px;">Delete Layer</button>
+            <button id="delete-layer-btn" class="btn btn-danger" style="width:100%; margin-top:10px;">Delete Element</button>
         `;
 
         document.getElementById('prop-font').value = currentFont;
         document.getElementById('prop-motion').value = currentMotion;
 
-        // Listeners for Live Editing
         document.getElementById('prop-text-input').addEventListener('input', (e) => {
             activeElement.innerText = e.target.value;
             updateLayerLabelOnly(activeElement);
@@ -237,13 +225,11 @@ document.addEventListener('DOMContentLoaded', () => {
             saveProject();
         });
         document.getElementById('prop-glow-color').addEventListener('input', (e) => {
-            const rad = document.getElementById('prop-glow-radius').value;
-            applyGlow(activeElement, e.target.value, rad);
+            applyGlow(activeElement, e.target.value, document.getElementById('prop-glow-radius').value);
             saveProject();
         });
         document.getElementById('prop-glow-radius').addEventListener('input', (e) => {
-            const col = document.getElementById('prop-glow-color').value;
-            applyGlow(activeElement, col, e.target.value);
+            applyGlow(activeElement, document.getElementById('prop-glow-color').value, e.target.value);
             saveProject();
         });
         document.getElementById('prop-font').addEventListener('change', (e) => {
@@ -269,7 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Helper functions
     function rgbToHex(rgb) {
         if (!rgb) return '#ffffff';
         const res = rgb.match(/\d+/g);
@@ -325,9 +310,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyPresetToElement(el, presetType) {
-        el.className = 'draggable-text' + (el === activeElement ? ' selected' : '');
-        el.classList.add(`fx-${presetType}`);
-        el.dataset.preset = presetType;
+        const keep = Array.from(el.classList).filter(c => !c.startsWith('fx-'));
+        el.className = keep.join(' ');
+        if (!el.classList.contains('draggable-text')) el.classList.add('draggable-text');
+        if (ALL_PRESETS.includes(presetType)) {
+            el.classList.add(`fx-${presetType}`);
+            el.dataset.preset = presetType;
+        }
     }
 
     document.querySelectorAll('.preset-card').forEach(btn => {
@@ -339,7 +328,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     addTextBtn.addEventListener('click', () => {
-        const el = createTextElement('নতুন টেক্সট');
+        const el = createTextElement('আমার পরানো');
+        el.style.left = '50px';
+        el.style.top = '100px';
+        el.style.fontSize = '55px';
+        applyPresetToElement(el, 'cyan-glass');
         canvas.appendChild(el);
         selectText(el);
         updateLayers();
@@ -358,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.fonts.add(font);
             await saveFontToStorage(fontName, buffer);
             customFonts.push(fontName);
-            alert(`Font '${fontName}' Permanent Load Complete!`);
+            alert(`ফন্ট '${fontName}' ব্রাউজারে সেভ হয়েছে!`);
             if (activeElement) renderProperties();
         };
         reader.readAsArrayBuffer(file);
@@ -381,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     resetProjectBtn.addEventListener('click', () => {
-        if (confirm('সব লেয়ার মুছে ফেলবেন?')) {
+        if (confirm('সব লেয়ার মুছে ফেলতে চান?')) {
             canvas.innerHTML = '';
             activeElement = null;
             propertiesContent.innerHTML = '<p class="empty-msg">ক্যানভাস থেকে যেকোনো টেক্সট সিলেক্ট করুন</p>';
@@ -391,22 +384,64 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ----------------------------------------------------------------
-    // PERFECT WEBM RECORDING ENGINE (Fixes Black Screen & Dark Shadows)
+    // PURE NATIVE CANVAS EXPORT ENGINE (Zero Quality Drop)
     // ----------------------------------------------------------------
+    function drawLayerToCanvas(ctx, el) {
+        const rect = el.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+
+        const x = rect.left - canvasRect.left + (rect.width / 2);
+        const y = rect.top - canvasRect.top + (rect.height / 2);
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        // Apply Native Glow Effect
+        const glowColor = el.dataset.glowColor;
+        const glowRadius = parseInt(el.dataset.glowRadius) || 0;
+        if (glowRadius > 0 && glowColor) {
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = glowRadius;
+        }
+
+        const computedStyle = window.getComputedStyle(el);
+        ctx.font = `${computedStyle.fontSize} ${computedStyle.fontFamily}`;
+        ctx.fillStyle = computedStyle.color || '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.fillText(el.innerText, 0, 0);
+        ctx.restore();
+    }
+
+    exportPngBtn.addEventListener('click', () => {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = canvas.clientWidth;
+        offCanvas.height = canvas.clientHeight;
+        const ctx = offCanvas.getContext('2d');
+
+        canvas.querySelectorAll('.draggable-text').forEach(el => drawLayerToCanvas(ctx, el));
+
+        const a = document.createElement('a');
+        a.download = 'textcraft-hd.png';
+        a.href = offCanvas.toDataURL('image/png');
+        a.click();
+    });
+
     exportWebmBtn.addEventListener('click', async () => {
         if (activeElement) activeElement.classList.remove('selected');
-        exportWebmBtn.innerText = '⏳ Exporting...';
+        exportWebmBtn.innerText = '⏳ Exporting HD...';
         exportWebmBtn.disabled = true;
 
         playMotionBtn.click();
 
         const duration = parseInt(videoDurationSelect.value) || 3000;
-        const offscreenCanvas = document.createElement('canvas');
-        offscreenCanvas.width = canvas.clientWidth;
-        offscreenCanvas.height = canvas.clientHeight;
-        const ctx = offscreenCanvas.getContext('2d');
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = canvas.clientWidth;
+        offCanvas.height = canvas.clientHeight;
+        const ctx = offCanvas.getContext('2d');
 
-        const stream = offscreenCanvas.captureStream(30);
+        const stream = offCanvas.captureStream(30);
         let recorder;
         try {
             recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
@@ -420,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const blob = new Blob(chunks, { type: 'video/webm' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = 'textcraft-animation.webm';
+            a.download = 'textcraft-hd-motion.webm';
             a.click();
 
             exportWebmBtn.innerText = '🎬 Export WebM';
@@ -431,35 +466,17 @@ document.addEventListener('DOMContentLoaded', () => {
         recorder.start();
 
         const startTime = Date.now();
-        const renderLoop = async () => {
+        const renderLoop = () => {
             if (Date.now() - startTime < duration) {
-                // background: null keeps transparency intact without black box
-                const cvs = await html2canvas(canvas, { 
-                    backgroundColor: null, 
-                    scale: 1,
-                    logging: false,
-                    useCORS: true
-                });
-                ctx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-                ctx.drawImage(cvs, 0, 0);
-                setTimeout(renderLoop, 1000 / 30);
+                ctx.clearRect(0, 0, offCanvas.width, offCanvas.height);
+                canvas.querySelectorAll('.draggable-text').forEach(el => drawLayerToCanvas(ctx, el));
+                requestAnimationFrame(renderLoop);
             } else {
                 recorder.stop();
             }
         };
 
         renderLoop();
-    });
-
-    exportPngBtn.addEventListener('click', () => {
-        if (activeElement) activeElement.classList.remove('selected');
-        html2canvas(canvas, { backgroundColor: null, scale: 2 }).then(cvs => {
-            const a = document.createElement('a');
-            a.download = 'textcraft-image.png';
-            a.href = cvs.toDataURL('image/png');
-            a.click();
-            if (activeElement) activeElement.classList.add('selected');
-        });
     });
 
     canvas.addEventListener('click', (e) => {
